@@ -115,7 +115,7 @@ func Query(session *gocql.Session, request string) {
 }
 
 func PrepareDatabase(session *gocql.Session, replicationFactor int) {
-	Query(session, fmt.Sprintf("CREATE KEYSPACE IF NOT EXISTS %s WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : %d }", keyspaceName, replicationFactor))
+	Query(session, fmt.Sprintf("CREATE KEYSPACE IF NOT EXISTS %s WITH REPLICATION = { 'class' : 'NetworkTopologyStrategy', 'replication_factor' : %d }", keyspaceName, replicationFactor))
 
 	Query(session, "CREATE TABLE IF NOT EXISTS "+keyspaceName+"."+tableName+" (pk bigint, ck bigint, v blob, PRIMARY KEY(pk, ck)) WITH compression = { }")
 
@@ -178,6 +178,8 @@ func GetMode(name string) func(session *gocql.Session, testResult *results.TestT
 			return DoWrites
 		}
 		return DoBatchedWrites
+	case "lwt_update":
+		return DoLwtUpdates
 	case "counter_update":
 		return DoCounterUpdates
 	case "read":
@@ -187,7 +189,7 @@ func GetMode(name string) func(session *gocql.Session, testResult *results.TestT
 	case "scan":
 		return DoScanTable
 	default:
-		log.Fatal("unknown mode: ", name, ". Available modes: write, counter_update, read, counter_read, scan")
+		log.Fatal("unknown mode: ", name, ". Available modes: write, lwt_update, counter_update, read, counter_read, scan")
 	}
 	panic("unreachable")
 }

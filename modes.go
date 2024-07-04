@@ -347,7 +347,7 @@ func handleSbRetryError(queryStr string, err error, currentAttempts int) error {
 		return err
 	} else {
 		sleepTime := getExponentialTime(retryPolicy.Min, retryPolicy.Max, currentAttempts)
-		log.Print(queryStr + " || retry: attempt №" + strconv.Itoa(currentAttempts) + ", sleep for " + sleepTime.String())
+		log.Printf("%s, error: %s", queryStr+" || retry: attempt №"+strconv.Itoa(currentAttempts)+", sleep for "+sleepTime.String(), err)
 		time.Sleep(sleepTime)
 	}
 	return nil
@@ -365,7 +365,7 @@ func DoWrites(session *gocql.Session, threadResult *results.TestThreadResult, wo
 		currentAttempts := 0
 		// NOTE: use custom query string instead of 'query.String()' to avoid huge values printings
 		queryStr := fmt.Sprintf(
-			"[query statement=%q values=%+v consistency=%s]",
+			"[query statement=%q values=%+v consistency=%s, error]",
 			request, []interface{}{pk, ck, "<" + strconv.Itoa(len(value)) + "-bytes-value>"},
 			query.GetConsistency())
 		for {
@@ -432,6 +432,42 @@ func DoBatchedWrites(session *gocql.Session, threadResult *results.TestThreadRes
 			if err == nil {
 				rb.IncOps()
 				rb.AddRows(batchSize)
+				latency := requestEnd.Sub(requestStart)
+				return nil, latency
+			}
+			if retryHandler == "sb" {
+				err = handleSbRetryError(queryStr, err, currentAttempts)
+			}
+			if err != nil {
+				return err, time.Duration(0)
+			}
+			currentAttempts++
+		}
+	})
+}
+
+func DoLwtUpdates(session *gocql.Session, threadResult *results.TestThreadResult, workload WorkloadGenerator, rateLimiter RateLimiter) {
+	RunTest(threadResult, workload, rateLimiter, func(rb *results.TestThreadResult) (error, time.Duration) {
+		request := "UPDATE " + keyspaceName + "." + tableName + " SET v = textAsBlob('LWT!') WHERE pk = ? and ck = ? IF EXISTS"
+		query := session.Query(request)
+		pk := workload.NextPartitionKey()
+		ck := workload.NextClusteringKey()
+		bound := query.Bind(pk, ck)
+
+		currentAttempts := 0
+		// NOTE: use custom query string instead of 'query.String()' to avoid huge values printings
+		queryStr := fmt.Sprintf(
+			"[LWT query statement=%q values=%+v consistency=%s]",
+			request, []interface{}{pk, ck},
+			query.GetConsistency())
+		for {
+			requestStart := time.Now()
+			err := bound.Exec()
+			requestEnd := time.Now()
+
+			if err == nil {
+				rb.IncOps()
+				rb.IncRows()
 				latency := requestEnd.Sub(requestStart)
 				return nil, latency
 			}

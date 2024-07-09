@@ -203,41 +203,10 @@ func toInt(value bool) int {
 }
 
 func getRetryPolicy() *gocql.ExponentialBackoffRetryPolicy {
-	var retryMinIntervalMillisecond, retryMaxIntervalMillisecond int
-	var err error
-
-	retryInterval = strings.Replace(retryInterval, " ", "", -1)
-	values := strings.Split(retryInterval, ",")
-	len_values := len(values)
-	if (len_values == 0) || (len_values > 2) {
-		log.Fatal("Wrong value for retry interval: '", retryInterval,
-			"'. Only 1 or 2 values are expected.")
-	}
-	for i := range values {
-		if _, err := strconv.Atoi(values[i]); err == nil {
-			values[i] = values[i] + "000"
-		}
-		values[i] = strings.Replace(values[i], "ms", "", -1)
-		values[i] = strings.Replace(values[i], "s", "000", -1)
-	}
-	retryMinIntervalMillisecond, err = strconv.Atoi(values[0])
-	if err != nil {
-		log.Fatal("Wrong value for retry minimum interval: '", values[0], "'")
-	}
-	retryMaxIntervalMillisecond, err = strconv.Atoi(values[len_values-1])
-	if err != nil {
-		log.Fatal("Wrong value for retry maximum interval: '", values[len_values-1], "'")
-	}
-	if retryMinIntervalMillisecond > retryMaxIntervalMillisecond {
-		log.Fatal("Wrong retry interval values provided: 'min' (",
-			values[0], "ms) interval is bigger than 'max' ("+
-				values[len_values-1]+"ms)")
-	}
-
 	return &gocql.ExponentialBackoffRetryPolicy{
-		NumRetries: retryNumber,
-		Min:        time.Duration(retryMinIntervalMillisecond) * time.Millisecond,
-		Max:        time.Duration(retryMaxIntervalMillisecond) * time.Millisecond,
+		NumRetries: 8,
+		Min:        time.Duration(200) * time.Millisecond,
+		Max:        time.Duration(30) * time.Second,
 	}
 }
 

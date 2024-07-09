@@ -115,7 +115,7 @@ func Query(session *gocql.Session, request string) {
 }
 
 func PrepareDatabase(session *gocql.Session, replicationFactor int) {
-	Query(session, fmt.Sprintf("CREATE KEYSPACE IF NOT EXISTS %s WITH REPLICATION = { 'class' : 'NetworkTopologyStrategy', 'replication_factor' : %d }", keyspaceName, replicationFactor))
+	Query(session, fmt.Sprintf("CREATE KEYSPACE IF NOT EXISTS %s WITH REPLICATION = { 'class' : 'NetworkTopologyStrategy', 'us-eastscylla_node_east': 1, 'eu-westscylla_node_west' : %d }", keyspaceName, replicationFactor-1))
 
 	Query(session, "CREATE TABLE IF NOT EXISTS "+keyspaceName+"."+tableName+" (pk bigint, ck bigint, v blob, PRIMARY KEY(pk, ck)) WITH compression = { }")
 
